@@ -10,12 +10,14 @@
 #include <openssl/err.h>
 
 #define FAIL -1
+#define PORT "993"
+#define HOST "imap.gmail.com"
 
 int OpenConnection(const char *, const char *);
 SSL_CTX *InitCTX(void);
 void ShowCerts(SSL *);
 
-int main(int count, char *strings[])
+int main(int count)
 {
     SSL_CTX *ctx;
     int server;
@@ -25,14 +27,10 @@ int main(int count, char *strings[])
     int bytes;
     const char *hostname, *portnum;
 
-    if (count != 3)
-    {
-        printf("usage: %s <hostname> <portnum>\n", strings[0]);
-        exit(0);
-    }
+    hostname = HOST;
+    portnum = PORT;
+
     SSL_library_init();
-    hostname = strings[1];
-    portnum = strings[2];
 
     ctx = InitCTX();
     server = OpenConnection(hostname, portnum);
@@ -123,6 +121,7 @@ int OpenConnection(const char *hostname, const char *port)
     } else {
         return(sd);
     }
+}
 }
 
 SSL_CTX *InitCTX(void)
