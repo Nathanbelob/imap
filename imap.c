@@ -21,11 +21,16 @@ void ShowCerts(SSL *);
 int main()
 {
     SSL_CTX *ctx;
-    int server;
+    int server = 0;
     SSL *ssl;
     char buf[1024];
     char acClientRequest[1024] = {0};
-    int bytes;
+    char acClientRequest2[1024] = {0};
+    char acClientRequest3[1024] = {0};
+    char acClientRequest4[1024] = {0};
+    char acClientRequest5[1024] = {0};
+    char acClientRequest6[1024] = {0};
+    int bytes = 0;
     const char *hostname, *portnum;
 
     hostname = HOST;
@@ -42,16 +47,13 @@ int main()
     }
     else
     {
-        char acUsername[16] = {0};
         char acPassword[16] = {0};
-    
-        printf("Enter the User Name : ");
-        scanf("%s", acUsername);
-
-        printf("\n\nEnter the Password : ");
-        scanf("%s", acPassword);
-
         //todo list, select "inbox", list, fetch,decode, logout
+       
+        printf("\n\nEnter the Password : ");
+        scanf("%[^\n]s", acPassword);        
+
+        sprintf(acClientRequest, "Aa login seminariosvi@gmail.com %s\r\n", acPassword); // construct reply ∗/
 
 
         printf("\n\nConnected with %s encryption\n", SSL_get_cipher(ssl));
@@ -60,7 +62,41 @@ int main()
         bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
         buf[bytes] = 0;
         printf("Received: \"%s\"\n", buf);
+
+        sprintf(acClientRequest2, "Bb list \"\" \"*\"\r\n"); // construct reply ∗/
+        SSL_write(ssl, acClientRequest2, strlen(acClientRequest2)); // encrypt & send message ∗/
+        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
+        buf[bytes] = 0;
+        printf("Received2: \"%s\"\n", buf);
+
+
+        sprintf(acClientRequest3, "Cc select \"INBOX\"\r\n"); // construct reply ∗/
+        SSL_write(ssl, acClientRequest3, strlen(acClientRequest3)); // encrypt & send message ∗/
+        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
+        buf[bytes] = 0;
+        printf("Received3: \"%s\"\n", buf);
+
+        
+        sprintf(acClientRequest4, "Dd UID SEARCH FROM \"Claudio Correa\"\r\n"); // construct reply ∗/
+        SSL_write(ssl, acClientRequest4, strlen(acClientRequest4)); // encrypt & send message ∗/
+        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
+        buf[bytes] = 0;
+        printf("Received4: \"%s\"\n", buf);
+
+        sprintf(acClientRequest5, "Ee UID FETCH 42 BODY\r\n"); // construct reply ∗/
+        SSL_write(ssl, acClientRequest5, strlen(acClientRequest5)); // encrypt & send message ∗/
+        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
+        buf[bytes] = 0;
+        printf("Received5: \"%s\"\n", buf);
+
+        sprintf(acClientRequest6, "Ee UID FETCH 42 BODY\r\n"); // construct reply ∗/
+        SSL_write(ssl, acClientRequest6, strlen(acClientRequest6)); // encrypt & send message ∗/
+        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
+        buf[bytes] = 0;
+        printf("Received5: \"%s\"\n", buf);
+
         SSL_free(ssl); // release connection state ∗/
+
     }
     close(server);     // close socket ∗/
     SSL_CTX_free(ctx); // release context ∗/
@@ -80,7 +116,6 @@ int hname_to_ip(const char *hostname, const char *port) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags |= AI_CANONNAME;
 
-    // if ( getaddrinfo(hostname, NULL, &hints, &srvinfo) != 0) {
     if (getaddrinfo(hostname, port, &hints, &srvinfo) != 0) {
         perror("getaddrinfo failed");
         return(EXIT_FAILURE);
@@ -104,16 +139,6 @@ int hname_to_ip(const char *hostname, const char *port) {
             printf("\nIPv%d address: %s (%s)\n", p->ai_family == PF_INET6 ? 6 : 4, addrstr, p->ai_canonname);
         }
 
-        // struct sockaddr ∗sa; /∗ input ∗/
-        // if (getnameinfo(sa, sa−>sa_len, (char ∗) &hostname, NI_MAXHOST, srvport_buf, sizeof(srvport_buf) ... // ou ←-
-        // ao ...
-        // if (getnameinfo(p−>ai_addr, p−>ai_addrlen, (char ∗) &hostname, NI_MAXHOST, NULL, 0, ←-
-        //NUMERICHOST | NI_NUMERICSERV) != 0) {
-            // perror("getnameinfo failed ");
-            // continue;
-            // } else { printf ("\nhost = %s\n", hbuf); }
-
-            //∗ make a socket ∗/
         if ((sd = socket(srvinfo->ai_family, srvinfo->ai_socktype, srvinfo->ai_protocol)) < 0) {
             perror("socket failed");
             continue;
@@ -141,12 +166,12 @@ int hname_to_ip(const char *hostname, const char *port) {
 
 SSL_CTX *InitCTX(void)
 {
-    SSL_METHOD *method;
+    const SSL_METHOD *method;
     SSL_CTX *ctx;
 
     OpenSSL_add_all_algorithms();     // Load cryptos, et.al. ∗/
     SSL_load_error_strings();         // Bring in and register error messages ∗/
-    method = TLSv1_1_client_method(); // Create new client−method instance ∗/
+    method = TLS_client_method(); // Create new client−method instance ∗/
     ctx = SSL_CTX_new(method);        // Create new context ∗/
     if (ctx == NULL)
     {
