@@ -24,6 +24,7 @@ int main()
     int server = 0;
     SSL *ssl;
     char buf[1024];
+    char bufbase64[2048];
     char acClientRequest[1024] = {0};
     char acClientRequest2[1024] = {0};
     char acClientRequest3[1024] = {0};
@@ -83,16 +84,16 @@ int main()
         buf[bytes] = 0;
         printf("Received4: \"%s\"\n", buf);
 
-        sprintf(acClientRequest5, "Ee UID FETCH 42 BODY\r\n"); // construct reply ∗/
+        sprintf(acClientRequest5, "Ee UID FETCH 42 (BODY.PEEK[2])\r\n"); // construct reply ∗/
         SSL_write(ssl, acClientRequest5, strlen(acClientRequest5)); // encrypt & send message ∗/
         bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
         buf[bytes] = 0;
         printf("Received5: \"%s\"\n", buf);
 
-        sprintf(acClientRequest6, "Ee UID FETCH 42 BODY\r\n"); // construct reply ∗/
+        sprintf(acClientRequest6, "Ee UID FETCH 42 (BODY.PEEK[2])\r\n"); // construct reply ∗/
         SSL_write(ssl, acClientRequest6, strlen(acClientRequest6)); // encrypt & send message ∗/
-        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
-        buf[bytes] = 0;
+        bytes = SSL_read(ssl, bufbase64, sizeof(bufbase64));                  // get reply & decrypt ∗/
+        bufbase64[bytes] = 0;
         printf("Received5: \"%s\"\n", buf);
 
         SSL_free(ssl); // release connection state ∗/
