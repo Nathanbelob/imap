@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <resolv.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -13,11 +14,11 @@
 #define PORT "993"
 #define HOST "imap.gmail.com"
 
-int OpenConnection(const char *, const char *);
+int hname_to_ip(const char *, const char *);
 SSL_CTX *InitCTX(void);
 void ShowCerts(SSL *);
 
-int main(int count)
+int main()
 {
     SSL_CTX *ctx;
     int server;
@@ -33,27 +34,25 @@ int main(int count)
     SSL_library_init();
 
     ctx = InitCTX();
-    server = OpenConnection(hostname, portnum);
+    server = hname_to_ip(hostname, portnum);
     ssl = SSL_new(ctx);           // create new SSL connection state ∗/
     SSL_set_fd(ssl, server);      // attach the socket deor ∗/
-    if (SSL_connect(ssl) == FAIL) // perform the connection ∗/
+    if (SSL_connect(ssl) == FAIL) {// perform the connection ∗/
         ERR_print_errors_fp(stderr);
+    }
     else
     {
         char acUsername[16] = {0};
         char acPassword[16] = {0};
-        const char *cpRequestMessage = "<Body>\
- <UserName>%s<UserName>\
- <Password>%s<Password>\
- <\Body>";
-
+    
         printf("Enter the User Name : ");
         scanf("%s", acUsername);
 
         printf("\n\nEnter the Password : ");
         scanf("%s", acPassword);
 
-        sprintf(acClientRequest, cpRequestMessage, acUsername, acPassword); // construct reply ∗/
+        //todo list, select "inbox", list, fetch,decode, logout
+
 
         printf("\n\nConnected with %s encryption\n", SSL_get_cipher(ssl));
         ShowCerts(ssl);                                           // get any certs ∗/
@@ -68,61 +67,77 @@ int main(int count)
     return 0;
 }
 
-int OpenConnection(const char *hostname, const char *port)
-{
-     struct addrinfo hints, *srvinfo, *p;
-  char addrstr[128];
-  int errcode = 0;
-  int sd = 0;
-  void *ptr;
+int hname_to_ip(const char *hostname, const char *port) {
+    struct addrinfo hints, *srvinfo, *p;
+    char addrstr[128];
+    int sd = 0;
+    void *ptr;
 
-  bzero(&hints, sizeof(hints));
-  bzero(addrstr, sizeof(addrstr));
+    bzero(&hints, sizeof(hints)); // memset(&hints, 0, sizeof(hints));
+    bzero(addrstr, sizeof(addrstr));
 
-  hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_flags |= AI_CANONNAME;
-  getaddrinfo (hostname, port, &hints, &srvinfo);
-  if (errcode != 0)
-    {
-      perror ("getaddrinfo");
-      return -1;
+    hints.ai_family = AF_UNSPEC; // use AF_INET6 to force IPv6
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags |= AI_CANONNAME;
+
+    // if ( getaddrinfo(hostname, NULL, &hints, &srvinfo) != 0) {
+    if (getaddrinfo(hostname, port, &hints, &srvinfo) != 0) {
+        perror("getaddrinfo failed");
+        return(EXIT_FAILURE);
     }
 
-//   printf ("Host: %s\n", hostname);
-  for(p = srvinfo; p != NULL; p = p->ai_next){
-      switch(p->ai_family){
-          case AF_INET:
-            ptr = &((struct sockaddr_in *) p->ai_addr)->sin_addr;
+    // loop through all the results and connect to the first we can
+    for (p = srvinfo; p != NULL; p = p->ai_next) {
+        // inet_ntop(p−>ai_family, p−>ai_addr−>sa_data, addrstr, sizeof(addrstr));
+        switch (p->ai_family) {
+            case AF_INET:
+                ptr = &((struct sockaddr_in *) p->ai_addr)->sin_addr;
             break;
-        
-          case AF_INET6:
-            ptr = &((struct sockaddr_in6 *) p->ai_addr)->sin6_addr;
+            case AF_INET6:
+                ptr = &((struct sockaddr_in6 *) p->ai_addr)->sin6_addr;
             break;
-      }
-      inet_ntop(p->ai_family, ptr, addrstr, sizeof(addrstr));
-        if(p->ai_canonname != '\0'){
-                printf ("\nIPv%d address: %s (%s)\n", p->ai_family == PF_INET6 ? 6 : 4,
-                addrstr, p->ai_canonname);
         }
 
-      if((sd = socket(srvinfo->ai_family, srvinfo->ai_socktype, srvinfo->ai_protocol)) < 0){
-          perror("socket failed");
-          continue;
-      } else {
-          break;
-  }
+        inet_ntop(p->ai_family, ptr, addrstr, sizeof(addrstr));
+        if (p->ai_canonname != '\0') {
+            // puts(hostname);
+            printf("\nIPv%d address: %s (%s)\n", p->ai_family == PF_INET6 ? 6 : 4, addrstr, p->ai_canonname);
+        }
 
-    freeaddrinfo(srvinfo);
+        // struct sockaddr ∗sa; /∗ input ∗/
+        // if (getnameinfo(sa, sa−>sa_len, (char ∗) &hostname, NI_MAXHOST, srvport_buf, sizeof(srvport_buf) ... // ou ←-
+        // ao ...
+        // if (getnameinfo(p−>ai_addr, p−>ai_addrlen, (char ∗) &hostname, NI_MAXHOST, NULL, 0, ←-
+        //NUMERICHOST | NI_NUMERICSERV) != 0) {
+            // perror("getnameinfo failed ");
+            // continue;
+            // } else { printf ("\nhost = %s\n", hbuf); }
 
-    if(p == NULL){  
-        fprintf(stderr, "Erro");
-        exit(0);
+            //∗ make a socket ∗/
+        if ((sd = socket(srvinfo->ai_family, srvinfo->ai_socktype, srvinfo->ai_protocol)) < 0) {
+            perror("socket failed");
+            continue;
+        }
+        ///∗ Connect does the bind for us ∗/
+        if (connect(sd, srvinfo->ai_addr, srvinfo->ai_addrlen) < 0) {
+            perror("connect failed");
+            continue;
+        } else {
+            break; // Connected succesfully!
+        }
+    }
+
+    ///∗ Free answers after use ∗/
+    freeaddrinfo(srvinfo); // all done with this structure
+
+    if (p == NULL) {
+        // The loop wasn't able to connect to the server
+        fprintf(stderr, "Couldn't connect to the hostname\n.");
+        exit(EXIT_FAILURE);
     } else {
         return(sd);
     }
-}
-}
+ }
 
 SSL_CTX *InitCTX(void)
 {
@@ -131,7 +146,7 @@ SSL_CTX *InitCTX(void)
 
     OpenSSL_add_all_algorithms();     // Load cryptos, et.al. ∗/
     SSL_load_error_strings();         // Bring in and register error messages ∗/
-    method = TLSv1_2_client_method(); // Create new client−method instance ∗/
+    method = TLSv1_1_client_method(); // Create new client−method instance ∗/
     ctx = SSL_CTX_new(method);        // Create new context ∗/
     if (ctx == NULL)
     {
