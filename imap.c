@@ -88,6 +88,8 @@ int main()
         char *output;
         printf("Received5: %s\n", inteiro);
         fprintf(fp, inteiro);
+        fclose(fp); //fecha a stream 'arqEntrada'
+
 
         SSL_free(ssl); // release connection state ∗/
         abreArquivo("image.txt");
