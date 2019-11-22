@@ -18,6 +18,7 @@
 #define NULO '\0'
 
 int hname_to_ip(const char *, const char *);
+void abreArquivo(char[]);
 
 SSL_CTX *InitCTX(void);
 void ShowCerts(SSL *);
@@ -29,11 +30,9 @@ int main()
     SSL *ssl;
     char buf[1024];
     char bufbase64[1024] = "";
-    char response[5000] = {0};
     char acClientRequest[1024] = {0};
     char acClientRequest2[1024] = {0};
     char acClientRequest3[1024] = {0};
-    char acClientRequest4[1024] = {0};
     char acClientRequest5[1024];
     int bytes = 0;
     const char *hostname, *portnum;
@@ -85,9 +84,8 @@ int main()
             i++;
         }
  
-        char *output;
         printf("Received5: %s\n", inteiro);
-        fprintf(fp, inteiro);
+        fprintf(fp, "%s" ,inteiro);
         fclose(fp); //fecha a stream 'arqEntrada'
 
 
@@ -131,7 +129,8 @@ int hname_to_ip(const char *hostname, const char *port) {
         }
 
         inet_ntop(p->ai_family, ptr, addrstr, sizeof(addrstr));
-        if (p->ai_canonname != '\0') {
+        
+        if (strcmp( p->ai_canonname, "\0") == 0) {
             // puts(hostname);
             printf("\nIPv%d address: %s (%s)\n", p->ai_family == PF_INET6 ? 6 : 4, addrstr, p->ai_canonname);
         }
@@ -200,7 +199,7 @@ void ShowCerts(SSL *ssl)
     return;
 }
 
-int abreArquivo(char arquivo[]){
+void abreArquivo(char arquivo[]){
     FILE *arqEntrada;
     FILE *arqSaida;
     int line = 1;
