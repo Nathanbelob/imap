@@ -9,12 +9,16 @@
 #include <netdb.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
 
 #define FAIL -1
 #define PORT "993"
 #define HOST "imap.gmail.com"
+#define NULO '\0'
 
 int hname_to_ip(const char *, const char *);
+
 SSL_CTX *InitCTX(void);
 void ShowCerts(SSL *);
 
@@ -24,15 +28,16 @@ int main()
     int server = 0;
     SSL *ssl;
     char buf[1024];
-    char bufbase64[2048];
+    char bufbase64[1024] = "";
+    char response[5000] = {0};
     char acClientRequest[1024] = {0};
     char acClientRequest2[1024] = {0};
     char acClientRequest3[1024] = {0};
     char acClientRequest4[1024] = {0};
-    char acClientRequest5[1024] = {0};
-    char acClientRequest6[1024] = {0};
+    char acClientRequest5[1024];
     int bytes = 0;
     const char *hostname, *portnum;
+    FILE * fp = fopen ("image.txt","w");
 
     hostname = HOST;
     portnum = PORT;
@@ -48,55 +53,46 @@ int main()
     }
     else
     {
-        char acPassword[16] = {0};
-        //todo list, select "inbox", list, fetch,decode, logout
-       
-        printf("\n\nEnter the Password : ");
-        scanf("%[^\n]s", acPassword);        
-
-        sprintf(acClientRequest, "Aa login seminariosvi@gmail.com %s\r\n", acPassword); // construct reply ∗/
-
+        sprintf(acClientRequest, "Aa login seminariosvi@gmail.com gerenciaRedes2019\r\n"); // construct reply ∗/
 
         printf("\n\nConnected with %s encryption\n", SSL_get_cipher(ssl));
         ShowCerts(ssl);                                           // get any certs ∗/
         SSL_write(ssl, acClientRequest, strlen(acClientRequest)); // encrypt & send message ∗/
-        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
-        buf[bytes] = 0;
-        printf("Received: \"%s\"\n", buf);
+        SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
+        SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
+        printf("Received: \"%s\"\r\n", buf);
 
         sprintf(acClientRequest2, "Bb list \"\" \"*\"\r\n"); // construct reply ∗/
         SSL_write(ssl, acClientRequest2, strlen(acClientRequest2)); // encrypt & send message ∗/
-        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
-        buf[bytes] = 0;
+        SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
         printf("Received2: \"%s\"\n", buf);
 
 
         sprintf(acClientRequest3, "Cc select \"INBOX\"\r\n"); // construct reply ∗/
         SSL_write(ssl, acClientRequest3, strlen(acClientRequest3)); // encrypt & send message ∗/
-        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
-        buf[bytes] = 0;
+        SSL_read(ssl, buf, sizeof(buf));                 // get reply & decrypt ∗/
         printf("Received3: \"%s\"\n", buf);
 
-        
-        sprintf(acClientRequest4, "Dd UID SEARCH FROM \"Claudio Correa\"\r\n"); // construct reply ∗/
-        SSL_write(ssl, acClientRequest4, strlen(acClientRequest4)); // encrypt & send message ∗/
-        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
-        buf[bytes] = 0;
-        printf("Received4: \"%s\"\n", buf);
-
-        sprintf(acClientRequest5, "Ee UID FETCH 42 (BODY.PEEK[2])\r\n"); // construct reply ∗/
+        sprintf(acClientRequest5, "Ee UID FETCH 42 (BODY.PEEK[3])\r\n"); // construct reply ∗/
         SSL_write(ssl, acClientRequest5, strlen(acClientRequest5)); // encrypt & send message ∗/
-        bytes = SSL_read(ssl, buf, sizeof(buf));                  // get reply & decrypt ∗/
-        buf[bytes] = 0;
-        printf("Received5: \"%s\"\n", buf);
 
-        sprintf(acClientRequest6, "Ee UID FETCH 42 (BODY.PEEK[2])\r\n"); // construct reply ∗/
-        SSL_write(ssl, acClientRequest6, strlen(acClientRequest6)); // encrypt & send message ∗/
-        bytes = SSL_read(ssl, bufbase64, sizeof(bufbase64));                  // get reply & decrypt ∗/
-        bufbase64[bytes] = 0;
-        printf("Received5: \"%s\"\n", buf);
+        char inteiro[60000] = ""; //precisa alocar o tamanho certo para a variavel, creio estatico assim nao seja o mais certo
+        int i = 0;
+        while(i < 30){ // colocar uma condicao de parada quando nao tiver mais nada na resposta, da forma dinamica como está pode nao dar certo para outra imagem
+            bytes = SSL_read(ssl, bufbase64, sizeof(bufbase64));    //executado em um laço de repetição 
+            bufbase64[bytes] = 0;
+            strcat(inteiro, bufbase64);   
+            i++;
+        }
+ 
+        char *output;
+        printf("Received5: %s\n", inteiro);
+        fprintf(fp, inteiro);
+        fclose(fp); //fecha a stream 'arqEntrada'
+
 
         SSL_free(ssl); // release connection state ∗/
+        abreArquivo("image.txt");
 
     }
     close(server);     // close socket ∗/
@@ -202,4 +198,36 @@ void ShowCerts(SSL *ssl)
         printf("Info: No client certificates configured.\n");
     }
     return;
+}
+
+int abreArquivo(char arquivo[]){
+    FILE *arqEntrada;
+    FILE *arqSaida;
+    int line = 1;
+    int linha = 1;
+    int i;
+    char textoArquivo[100];
+    if((arqEntrada = fopen(arquivo, "r")) == 0){ //testa se o arquivo pode ser aberto
+    printf("Impossivel abrir arquivo...\n"); //informa o erro
+    exit(1); //finaliza execução
+    }
+    if((arqSaida = fopen("encoded.txt", "w")) == 0){ //testa se o arquivo pode ser aberto
+    printf("Impossivel abrir arquivo...\n"); //informa o erro
+    exit(1); //finaliza execução
+    }
+    rewind(arqEntrada); //certifica de que o cursor esta no primeiro caractere do arquivo
+    for(i = 0; !feof(arqEntrada);i++){ //incrementa 'i' enquando não for fim de arquivo
+    memset(textoArquivo, NULO, 100); //inicializa e/ou limpa string 'textoArquivo'
+    fgets(textoArquivo, 101, arqEntrada); //pega uma string de 100 caracteres
+    if(linha == line){ //se a linha for a escolhida
+    fputc('\n', arqSaida); //troca a linha que o usuario quer por nova linha
+    linha = linha + 1; //incrementa o contador de linhas
+    continue; //volta ao inicio do loop sem executar o resto
+    }
+    linha = linha + 1; //incrementa o contador de linas
+    fputs(textoArquivo, arqSaida); //coloca a string 'textoArquivo' no arquivo encoded.txt
+    }
+    printf("Linhas: %d\n", (linha-1)); //imprime quantas linhas tem o arquivo lido
+    fclose(arqEntrada); //fecha a stream 'arqEntrada'
+    fclose(arqSaida); //fecha a stream 'arqSaida'
 }
